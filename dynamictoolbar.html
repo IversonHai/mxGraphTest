@@ -1,0 +1,524 @@
+<!--
+  Copyright (c) 2006-2013, JGraph Ltd
+  
+  Dynamic toolbar example for mxGraph. This example demonstrates changing the
+  state of the toolbar at runtime.
+-->
+<html>
+<head>
+	<title>Toolbar example for mxGraph</title>
+
+	<style>
+	.toolbar {
+		position: absolute;
+		overflow: hidden;
+		padding: 2px;
+		left: 0;
+		top: 0;
+		bottom: 0;
+		width: 24px;
+	}
+	.graphContainer {
+		position: absolute;
+		overflow: hidden;
+		left: 24px;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		background: url("editors/images/grid.gif");
+	}
+	.arrangeBtn {
+		position: absolute;
+		right: 0;
+		top: 0;
+	}
+	</style>
+
+	<!-- Sets the basepath for the library if not in same directory -->
+	<script type="text/javascript">
+		mxBasePath = '../src';
+	</script>
+
+	<!-- Loads and initializes the library -->
+	<script type="text/javascript" src="../src/js/mxClient.js"></script>
+
+	<!-- Example code -->
+	<script type="text/javascript">
+		// Program starts here. Creates a sample graph in the
+		// DOM node with the specified ID. This function is invoked
+		// from the onLoad event handler of the document (see below).
+		function main()
+		{
+			// Checks if browser is supported
+			if (!mxClient.isBrowserSupported())
+			{
+				// Displays an error message if the browser is
+				// not supported.
+				mxUtils.error('Browser is not supported!', 200, false);
+			}
+			else
+			{
+				// Defines an icon for creating new connections in the connection handler.
+				// This will automatically disable the highlighting of the source vertex.
+				// 通过修改原型 修改 元素中间用于拖拽连接的 图像
+				mxConnectionHandler.prototype.connectImage = new mxImage('images/connector.gif', 16, 16);
+
+				// Creates the div for the toolbar
+				// 创建 toolbar 的容器
+				var tbContainer = document.createElement('div');
+				tbContainer.setAttribute('data-name', 'toolbar')
+				tbContainer.classList.add('toolbar')
+
+				document.body.appendChild(tbContainer);
+			
+				// Creates new toolbar without event processing
+				var toolbar = new mxToolbar(tbContainer);
+				toolbar.enabled = false
+
+
+
+
+				
+				// Creates the div for the graph
+				// 创建中间 graph 的容器
+				var container = document.createElement('div');
+				container.classList.add('graphContainer')
+
+				// Disables built-in context menu
+				mxEvent.disableContextMenu(container);
+
+				document.body.appendChild(container);
+				
+				// Workaround for Internet Explorer ignoring certain styles
+				// if (mxClient.IS_QUIRKS)
+				// {
+				// 	document.body.style.overflow = 'hidden';
+				// 	new mxDivResizer(tbContainer);
+				// 	new mxDivResizer(container);
+				// }
+	
+				// Creates the model and the graph inside the container
+				// using the fastest rendering available on the browser
+				var model = new mxGraphModel();
+				var editor = new mxEditor();
+				var graph = editor.graph;
+				// var graph = new mxGraph(container, model);
+				editor.setGraphContainer(container);
+				// var config = mxUtils.load(
+				// 	'editors/config/keyhandler-commons.xml').
+				// 	getDocumentElement();
+				// editor.configure(config);
+
+				// Automatically handle parallel edges
+				// var layout = new mxParallelEdgeLayout(graph);
+				// var layoutMgr = new mxLayoutManager(graph);
+
+				// layoutMgr.getLayout = function (cell) {
+				// 	if (cell.getChildCount() > 0) {
+				// 		return layout;
+				// 	}
+				// };
+
+				// Optionally you can enable panning, tooltips and connections
+				// using graph.setPanning(), setTooltips() & setConnectable().
+				// graph.setPanning(true);
+				graph.setTooltips(true);
+				// Enables new connections in the graph
+				graph.setConnectable(true);
+				// 禁止两个节点之间的多次连接
+				graph.setMultigraph(false);
+
+				graph.dblClick = function(evt, cell) {
+					if (cell.type === 'node') {
+						evt.preventDefault()
+					}
+					mxGraph.prototype.dblClick.apply(this, arguments)
+				}
+
+				// Stops editing on enter or escape keypress
+				// var keyHandler = new mxKeyHandler(graph);
+				// 添加 graph 上的范围选择
+				var rubberband = new mxRubberband(graph);
+
+
+				// Changes the default style for edges "in-place" and assigns
+				// an alternate edge style which is applied in mxGraph.flip
+				// when the user double clicks on the adjustment control point
+				// of the edge. The ElbowConnector edge style switches to TopToBottom
+				// if the horizontal style is true.
+				var style = graph.getStylesheet().getDefaultEdgeStyle();
+				style[mxConstants.STYLE_ROUNDED] = true;
+				style[mxConstants.STYLE_EDGE] = mxEdgeStyle.SegmentConnector;
+
+				// graph.alternateEdgeStyle = 'elbow=vertical';
+
+				// Installs a custom tooltip for cells
+				// graph.getTooltipForCell = function (cell) {
+				// 	return 'Doubleclick and right- or shiftclick';
+				// }
+
+				// Installs a popupmenu handler using local function (see below).
+				graph.popupMenuHandler.factoryMethod = function (menu, cell, evt) {
+					return createPopupMenu(graph, menu, cell, evt);
+				};
+
+
+
+				// Gets the default parent for inserting new cells. This
+				// is normally the first child of the root (ie. layer 0).
+				var parent = graph.getDefaultParent();
+
+				// Creates a layout algorithm to be used
+				// with the graph
+				var organiclayout = new mxFastOrganicLayout(graph);
+
+				// Moves stuff wider apart than usual
+				organiclayout.forceConstant = 140;
+
+				// Adds a button to execute the layout
+				var circleLayoutBtn = mxUtils.button('Circle Layout', function (evt) {
+					graph.getModel().beginUpdate();
+					try {
+						// Creates a layout algorithm to be used
+						// with the graph
+						var circleLayout = new mxCircleLayout(graph);
+						circleLayout.execute(parent);
+					}
+					catch (e) {
+						throw e;
+					}
+					finally {
+						var morph = new mxMorphing(graph);
+						morph.addListener(mxEvent.DONE, function () {
+							graph.getModel().endUpdate();
+						});
+
+						morph.startAnimation();
+					}
+				})
+
+				// Adds a button to execute the layout
+				var organicLayoutBtn = mxUtils.button('Organic Layout', function (evt) {
+					graph.getModel().beginUpdate();
+					try {
+						organiclayout.execute(parent);
+					}
+					catch (e) {
+						throw e;
+					}
+					finally {
+						// Default values are 6, 1.5, 20
+						var morph = new mxMorphing(graph, 10, 1.7, 20);
+						morph.addListener(mxEvent.DONE, function () {
+							graph.getModel().endUpdate();
+						});
+						morph.startAnimation();
+					}
+				})
+
+				// Adds a button to execute the layout
+				var Hierlayout = new mxHierarchicalLayout(graph);
+
+				var hierarchicalBtn = mxUtils.button('Hierarchical', function (evt) {
+					graph.getModel().beginUpdate();
+					try {
+						Hierlayout.execute(parent);
+					}
+					catch (e) {
+						throw e;
+					}
+					finally {
+						// Default values are 6, 1.5, 20
+						var morph = new mxMorphing(graph, 10, 1.7, 20);
+						morph.addListener(mxEvent.DONE, function () {
+							graph.getModel().endUpdate();
+						});
+						morph.startAnimation();
+					}
+				})
+
+
+				var btnContainer = document.createElement('div')
+				btnContainer.classList.add('arrangeBtn')
+				btnContainer.appendChild(circleLayoutBtn)
+				btnContainer.appendChild(organicLayoutBtn)
+				btnContainer.appendChild(hierarchicalBtn)
+				document.body.appendChild(btnContainer)
+
+
+				// Returns a HTML representation of the cell where the
+				// upper half is the first value, lower half is second
+				// value
+				graph.getLabel = function (cell) {
+					// 这里应该通过ajax获取对应节点
+					var nameArr = []
+					if (cell.type === 'node') {
+						nameArr = ['', 'lqisa', 'b', 'c', 'd']
+					} else {
+						return mxGraph.prototype.getLabel.apply(this, arguments);
+					}
+					var selections = document.createElement('select')
+					var index = nameArr.indexOf(cell.value)
+					var len = nameArr.length
+					for (var i = 0; i < len; i++) {
+						var op = document.createElement('option')
+						if (i === index) {
+							op.setAttribute('selected', true)
+						}
+						op.innerHTML = nameArr[i]
+						selections.appendChild(op)
+					}
+					selections.onchange = function (e) {
+						graph.labelChanged(cell, e.target.value)
+					}
+					return selections
+				};
+
+				// Sets the new value for the given cell and trigger
+				// graph.labelChanged = function (cell, newValue, trigger) {
+				// 	// var name = (trigger != null) ? trigger.fieldname : null;
+
+				// 	// if (name != null) {
+				// 	// 	// Clones the user object for correct undo and puts
+				// 	// 	// the new value in the correct field.
+				// 	// 	var value = mxUtils.clone(cell.value);
+				// 	// 	value[name] = newValue;
+				// 	// 	newValue = value;
+
+				// 		mxGraph.prototype.labelChanged.apply(this, arguments);
+				// 	// }
+				// };
+
+				// Returns the editing value for the given cell and event
+				graph.getEditingValue = function (cell, evt) {
+					if (cell.type === 'condition') {
+						return cell.value
+					}
+					// console.log(cell.value)
+					// return cell.value
+					// if (cell.value === 'node') {
+
+					// } else if (cell.value === 'condition') {
+
+					// }
+					// return cell.value[evt.fieldname] || '';
+				};
+
+
+
+				// Defines a new export action
+				editor.addAction('export', function (editor, cell) {
+					var textarea = document.createElement('textarea');
+					textarea.style.width = '400px';
+					textarea.style.height = '400px';
+					var enc = new mxCodec(mxUtils.createXmlDocument());
+					var node = enc.encode(editor.graph.getModel());
+					textarea.value = mxUtils.getPrettyXml(node);
+					showModalWindow(graph, 'XML', textarea, 410, 440);
+				});
+
+				var exportBtn = document.createElement('button');
+				var image = 'images/export1.png'
+				exportBtn.style.fontSize = '10';
+				if (image != null) {
+					var img = document.createElement('img');
+					img.setAttribute('src', image);
+					img.style.width = '16px';
+					img.style.height = '16px';
+					img.style.verticalAlign = 'middle';
+					img.style.marginRight = '2px';
+					exportBtn.appendChild(img);
+				}
+				mxEvent.addListener(exportBtn, 'click', function (evt) {
+					editor.execute('export');
+				});
+				mxUtils.write(exportBtn, '导出');
+				btnContainer.appendChild(exportBtn)
+
+
+
+
+
+				// 设置样式
+				configureStylesheet (graph)
+				
+				var addVertex = function(icon, w, h, style, type)
+				{
+					var vertex = new mxCell(null, new mxGeometry(0, 0, w, h), style);
+					// 添加自定义属性type
+					vertex.type = type
+					vertex.setVertex(true);
+				
+					var img = addToolbarItem(graph, toolbar, vertex, icon);
+					img.enabled = true;
+					
+					graph.getSelectionModel().addListener(mxEvent.CHANGE, function()
+					{
+						var tmp = graph.isSelectionEmpty();
+						mxUtils.setOpacity(img, (tmp) ? 100 : 20);
+						img.enabled = tmp;
+					});
+				};
+				
+				// 添加toolbar图形
+				addVertex('editors/images/rectangle.gif', 160, 80, 'right', 'node');
+				// addVertex('editors/images/rounded.gif', 100, 40, 'shape=rounded');
+				// addVertex('editors/images/ellipse.gif', 40, 40, 'shape=ellipse');
+				addVertex('editors/images/rhombus.gif', 70, 70, 'shape=rhombus', 'condition'); // shape=rhombus  / SHAPE_RHOMBUS: 'rhombus'
+				// addVertex('editors/images/triangle.gif', 40, 40, 'shape=triangle');
+				// addVertex('editors/images/cylinder.gif', 40, 40, 'shape=cylinder');
+				// addVertex('editors/images/actor.gif', 30, 40, 'shape=actor');
+			}
+		}
+
+		function addToolbarItem(graph, toolbar, prototype, image) {
+			// Function that is executed when the image is dropped on
+			// the graph. The cell argument points to the cell under
+			// the mousepointer if there is one.
+			var funct = function(graph, evt, cell, x, y) {
+				graph.stopEditing(false);
+
+				var vertex = graph.getModel().cloneCell(prototype);
+				vertex.geometry.x = x;
+				vertex.geometry.y = y;
+				
+				// 输出样式
+				// console.log(vertex.style)
+
+				console.log(arguments)
+
+				graph.addCell(vertex);
+				graph.setSelectionCell(vertex);
+			}
+			
+			// Creates the image which is used as the drag icon (preview)
+			var img = toolbar.addMode(null, image, function(evt, cell) {
+				var pt = this.graph.getPointForEvent(evt);
+				funct(graph, evt, cell, pt.x, pt.y);
+			});
+			
+			// // Disables dragging if element is disabled. This is a workaround
+			// // for wrong event order in IE. Following is a dummy listener that
+			// // is invoked as the last listener in IE.
+			// mxEvent.addListener(img, 'mousedown', function(evt)
+			// {
+			// 	// do nothing
+			// });
+			
+			// This listener is always called first before any other listener
+			// in all browsers.
+			mxEvent.addListener(img, 'mousedown', function(evt) {
+				if (img.enabled == false) {
+					mxEvent.consume(evt);
+				}
+			});
+						
+			mxUtils.makeDraggable(img, graph, funct, null, null, null, false, false, true, null);
+
+			return img;
+		}
+
+		// Function to create the entries in the popupmenu
+		function createPopupMenu(graph, menu, cell, evt) {
+			if (cell != null) {
+				menu.addItem('删除项目', undefined, function () {
+					// 删除当前元素及其连接
+					graph.selectAll(cell)
+					graph.removeCells();
+				});
+			}
+			// menu.addSeparator();
+
+			// menu.addItem('MenuItem3', '../src/images/warning.gif', function () {
+			// 	mxUtils.alert('MenuItem3: ' + graph.getSelectionCount() + ' selected');
+			// });
+		};
+
+		function configureStylesheet(graph) {
+			var style = new Object();
+			style[mxConstants.STYLE_SHAPE] = mxConstants.SHAPE_IMAGE;
+			style[mxConstants.STYLE_PERIMETER] = mxPerimeter.RectanglePerimeter;
+			style[mxConstants.STYLE_IMAGE] = 'images/icons48/keys.png';
+			style[mxConstants.STYLE_FONTCOLOR] = '#FFFFFF';
+			graph.getStylesheet().putCellStyle('image', style);
+
+			style = mxUtils.clone(style);
+			style[mxConstants.STYLE_SHAPE] = mxConstants.SHAPE_LABEL;
+			style[mxConstants.STYLE_STROKECOLOR] = '#000000';
+			style[mxConstants.STYLE_ALIGN] = mxConstants.ALIGN_CENTER;
+			style[mxConstants.STYLE_VERTICAL_ALIGN] = mxConstants.ALIGN_TOP;
+			style[mxConstants.STYLE_IMAGE_ALIGN] = mxConstants.ALIGN_CENTER;
+			style[mxConstants.STYLE_IMAGE_VERTICAL_ALIGN] = mxConstants.ALIGN_TOP;
+			style[mxConstants.STYLE_IMAGE] = 'images/icons48/gear.png';
+			style[mxConstants.STYLE_IMAGE_WIDTH] = '48';
+			style[mxConstants.STYLE_IMAGE_HEIGHT] = '48';
+			style[mxConstants.STYLE_SPACING_TOP] = '56';
+			style[mxConstants.STYLE_SPACING] = '8';
+			style[mxConstants.STYLE_FONTCOLOR] = 'black';
+			graph.getStylesheet().putCellStyle('bottom', style);
+
+			style = mxUtils.clone(style);
+			style[mxConstants.STYLE_IMAGE_VERTICAL_ALIGN] = mxConstants.ALIGN_BOTTOM;
+			style[mxConstants.STYLE_IMAGE] = 'images/icons48/server.png';
+			delete style[mxConstants.STYLE_SPACING_TOP];
+			graph.getStylesheet().putCellStyle('top', style);
+
+			style = mxUtils.clone(style);
+			style[mxConstants.STYLE_ALIGN] = mxConstants.ALIGN_LEFT;
+			style[mxConstants.STYLE_IMAGE_ALIGN] = mxConstants.ALIGN_LEFT;
+			style[mxConstants.STYLE_VERTICAL_ALIGN] = mxConstants.ALIGN_MIDDLE;
+			style[mxConstants.STYLE_IMAGE_VERTICAL_ALIGN] = mxConstants.ALIGN_MIDDLE;
+			style[mxConstants.STYLE_IMAGE] = 'images/icons48/earth.png';
+			style[mxConstants.STYLE_SPACING_LEFT] = '55';
+			style[mxConstants.STYLE_SPACING] = '4';
+			style[mxConstants.STYLE_FONTCOLOR] = 'black';
+			graph.getStylesheet().putCellStyle('right', style);
+
+			style = mxUtils.clone(style);
+			style[mxConstants.STYLE_ALIGN] = mxConstants.ALIGN_RIGHT;
+			style[mxConstants.STYLE_IMAGE_ALIGN] = mxConstants.ALIGN_RIGHT;
+			delete style[mxConstants.STYLE_SPACING_LEFT];
+			style[mxConstants.STYLE_SPACING_RIGHT] = '55';
+			graph.getStylesheet().putCellStyle('left', style);
+		}
+
+
+		function showModalWindow(graph, title, content, width, height) {
+			var background = document.createElement('div');
+			background.style.position = 'absolute';
+			background.style.left = '0px';
+			background.style.top = '0px';
+			background.style.right = '0px';
+			background.style.bottom = '0px';
+			background.style.background = 'black';
+			mxUtils.setOpacity(background, 50);
+			document.body.appendChild(background);
+
+			if (mxClient.IS_IE) {
+				new mxDivResizer(background);
+			}
+
+			var x = Math.max(0, document.body.scrollWidth / 2 - width / 2);
+			var y = Math.max(10, (document.body.scrollHeight ||
+				document.documentElement.scrollHeight) / 2 - height * 2 / 3);
+			var wnd = new mxWindow(title, content, x, y, width, height, false, true);
+			wnd.setClosable(true);
+
+			// Fades the background out after after the window has been closed
+			wnd.addListener(mxEvent.DESTROY, function (evt) {
+				graph.setEnabled(true);
+				mxEffects.fadeOut(background, 50, true,
+					10, 30, true);
+			});
+
+			graph.setEnabled(false);
+			graph.tooltipHandler.hide();
+			wnd.setVisible(true);
+		};
+	</script>
+</head>
+
+<!-- Calls the main function after the page has loaded. Container is dynamically created. -->
+<body onload="main();">
+</body>
+</html>
